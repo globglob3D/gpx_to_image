@@ -3,32 +3,12 @@ import gpxpy
 from selenium import webdriver
 import time
 import os
-import numpy as np
 import math
-import glob
-
-# Calculate the Euclidean distance between two points
-def calculate_distance(point1, point2):
-    distance = np.linalg.norm(np.array(point1) - np.array(point2))
-    return distance
-
-def push_markers_apart(icon1, icon2, min_distance):
-    distance = calculate_distance(icon1.location, icon2.location)
-    if distance < min_distance:
-        # Calculate the vector between the icon positions
-        vector = np.array(icon1.location) - np.array(icon2.location)
-        vector = vector / np.linalg.norm(vector)  # Normalize the vector
-
-        # Calculate the new positions to push the icons apart
-        shift = (min_distance - distance) / 2
-        new_position1 = (icon1.location + vector * shift).tolist()
-        new_position2 = (icon2.location - vector * shift).tolist()
-
-        # Update the icon positions
-        icon1.location = new_position1
-        icon2.location = new_position2
 
 def get_bar_icon_from_coordinates(coord):
+    # Figure out which bar icon should be displayed at the end 
+    # of the route based on their gps coords
+
     bars_coordinates = {
         "zoomai":[[43.28615, 5.38671], "logos/Logo_Zoomai.png"],
         "keg":[[43.24596, 5.42558], "logos/Logo_Keg.png"]
@@ -39,7 +19,6 @@ def get_bar_icon_from_coordinates(coord):
     for key, coordinates in bars_coordinates.items():
         x2, y2 = coordinates[0]
         distance = math.sqrt((coord[0] - x2) ** 2 + (coord[1] - y2) ** 2)
-        print(distance)
 
         if distance < min_distance:
             min_distance = distance
@@ -63,26 +42,29 @@ def convert_gpx_to_map(gpx_file, output_image):
     midpoint_lat = (min(p[0] for p in points) + max(p[0] for p in points)) / 2
     midpoint_lon = (min(p[1] for p in points) + max(p[1] for p in points)) / 2
 
-    # Calculate the difference between the minimum and maximum latitude and longitude values (to influence how zoomed in the map is)
-    delta_lat = max(p[0] for p in points) - min(p[0] for p in points)
-    delta_lon = max(p[1] for p in points) - min(p[1] for p in points)
-    max_delta = max(delta_lat, delta_lon)
-
     # Create map object using Folium
     resolution = 1024
     map_obj = folium.Map(
-        tiles = "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=6d83354b-5801-4255-ac4b-6b41df50cf8c", 
-        attr = '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
+        tiles = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png", 
+        attr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         location=[midpoint_lat, midpoint_lon], 
         width=resolution, 
         height=resolution,
         zoom_control=False, 
         prefer_canvas=True, 
-        zoom_start = 15.5 - max_delta*20)
+        zoom_start = 14)
+    
+    # Calculate the bounds of the GPX track
+    min_lat = min(p[0] for p in points)
+    max_lat = max(p[0] for p in points)
+    min_lon = min(p[1] for p in points)
+    max_lon = max(p[1] for p in points)
+
+    # Fit the map to the bounds of the GPX track
+    map_obj.fit_bounds([(min_lat, min_lon), (max_lat, max_lon)], padding = (40,40))
 
     # Plot coordinates on the map
-    # color="#1381FA"
-    folium.PolyLine(points, color="yellow", weight=4, line_cap="round", line_join="round", opacity=0.9).add_to(
+    folium.PolyLine(points, color="#1573DF", weight=5, line_cap="round", line_join="round", opacity=0.9).add_to(
         map_obj)
 
     # Add start and end markers
@@ -92,20 +74,8 @@ def convert_gpx_to_map(gpx_file, output_image):
     bar_icon = get_bar_icon_from_coordinates([end_lat, end_lon])
     start_icon = folium.features.CustomIcon("logos/Logo_MB.png", icon_size=icon_size, icon_anchor=(icon_size[0] / 2, icon_size[1] + 2))
     end_icon = folium.features.CustomIcon(bar_icon, icon_size=icon_size, icon_anchor=(icon_size[0] / 2, icon_size[1] + 2))
-    start_marker = folium.Marker([start_lat, start_lon], icon=start_icon)
-    end_marker = folium.Marker([end_lat, end_lon], icon=end_icon)
-
-    # Create a list of icons
-    icons = [start_marker, end_marker]
-
-    # Push the icons apart if they are too close
-    min_distance = (icon_size[0] / 2) + 5
-    min_distance = 0.0055
-    push_markers_apart(start_marker, end_marker, min_distance)
-
-    # Add the markers to the map
-    for icon in icons:
-        icon.add_to(map_obj)
+    start_marker = folium.Marker([start_lat, start_lon], icon=start_icon).add_to(map_obj)
+    end_marker = folium.Marker([end_lat, end_lon], icon=end_icon, z_index_offset=1000).add_to(map_obj)
 
     # Save the map as an HTML file
     map_obj.save("temp_map.html")
@@ -119,6 +89,8 @@ def convert_gpx_to_map(gpx_file, output_image):
     time.sleep(1)  # Delay to let the map tiles load properly
     driver.save_screenshot(output_image)
     driver.quit()
+
+    print(output_image)
 
 for file in os.listdir("gpx_files/"):
     if file.endswith(".gpx"):
