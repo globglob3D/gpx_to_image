@@ -72,10 +72,11 @@ def convert_gpx_to_map(gpx_file, output_image):
     end_lat, end_lon = points[-1]
     icon_size = (60, 60)
     bar_icon = get_bar_icon_from_coordinates([end_lat, end_lon])
-    start_icon = folium.features.CustomIcon("logos/Logo_MB.png", icon_size=icon_size, icon_anchor=(icon_size[0] / 2, icon_size[1] + 2))
-    end_icon = folium.features.CustomIcon(bar_icon, icon_size=icon_size, icon_anchor=(icon_size[0] / 2, icon_size[1] + 2))
-    start_marker = folium.Marker([start_lat, start_lon], icon=start_icon).add_to(map_obj)
-    end_marker = folium.Marker([end_lat, end_lon], icon=end_icon, z_index_offset=1000).add_to(map_obj)
+    start_icon = folium.features.CustomIcon("logos/Logo_MB.png", icon_size=icon_size, icon_anchor=(icon_size[0] / 2, icon_size[1] + 4))
+    end_icon = folium.features.CustomIcon(bar_icon, icon_size=icon_size, icon_anchor=(icon_size[0] / 2, icon_size[1] + 4))
+    folium.Marker([start_lat, start_lon], icon=start_icon).add_to(map_obj)
+    folium.Marker([end_lat, end_lon], icon=end_icon, z_index_offset=1000).add_to(map_obj)
+    
 
     # Save the map as an HTML file
     map_obj.save("temp_map.html")
