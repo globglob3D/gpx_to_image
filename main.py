@@ -5,6 +5,7 @@ import time
 import os
 import numpy as np
 import math
+import glob
 
 # Calculate the Euclidean distance between two points
 def calculate_distance(point1, point2):
@@ -29,25 +30,22 @@ def push_markers_apart(icon1, icon2, min_distance):
 
 def get_bar_icon_from_coordinates(coord):
     bars_coordinates = {
-        "zoomai":[[43.2459, 5.4255], "logos/Logo_Zoomai.png"],
-        "keg":[[43.2459, 5.4255], "logos/Logo_Keg.png"]
+        "zoomai":[[43.28615, 5.38671], "logos/Logo_Zoomai.png"],
+        "keg":[[43.24596, 5.42558], "logos/Logo_Keg.png"]
     }
 
-    closest_coordinates = None
     min_distance = float('inf')  # Initialize with a large value
 
     for key, coordinates in bars_coordinates.items():
         x2, y2 = coordinates[0]
         distance = math.sqrt((coord[0] - x2) ** 2 + (coord[1] - y2) ** 2)
+        print(distance)
 
         if distance < min_distance:
             min_distance = distance
-            closest_coordinates = key
-
-    return closest_coordinates
-
-    return icon
-
+            closest_bar = key
+    
+    return bars_coordinates[closest_bar][1] # Icon
 
 def convert_gpx_to_map(gpx_file, output_image):
 
@@ -69,7 +67,6 @@ def convert_gpx_to_map(gpx_file, output_image):
     delta_lat = max(p[0] for p in points) - min(p[0] for p in points)
     delta_lon = max(p[1] for p in points) - min(p[1] for p in points)
     max_delta = max(delta_lat, delta_lon)
-    print(max_delta)
 
     # Create map object using Folium
     resolution = 1024
@@ -81,7 +78,7 @@ def convert_gpx_to_map(gpx_file, output_image):
         height=resolution,
         zoom_control=False, 
         prefer_canvas=True, 
-        zoom_start=13.3 + max_delta)
+        zoom_start = 15.5 - max_delta*20)
 
     # Plot coordinates on the map
     # color="#1381FA"
@@ -97,7 +94,6 @@ def convert_gpx_to_map(gpx_file, output_image):
     end_icon = folium.features.CustomIcon(bar_icon, icon_size=icon_size, icon_anchor=(icon_size[0] / 2, icon_size[1] + 2))
     start_marker = folium.Marker([start_lat, start_lon], icon=start_icon)
     end_marker = folium.Marker([end_lat, end_lon], icon=end_icon)
-    print([end_lat, end_lon])
 
     # Create a list of icons
     icons = [start_marker, end_marker]
@@ -124,6 +120,8 @@ def convert_gpx_to_map(gpx_file, output_image):
     driver.save_screenshot(output_image)
     driver.quit()
 
-gpx_file = "gpx_files/Massilia Bastards M17.gpx"
-output_image = f"output_images/test_{os.path.basename(gpx_file)}.png"
-convert_gpx_to_map(gpx_file, output_image)
+for file in os.listdir("gpx_files/"):
+    if file.endswith(".gpx"):
+        gpx_file = os.path.join("gpx_files/",file)
+        output_image = f"output_images/map_{os.path.basename(gpx_file).split('.')[0]}.png"
+        convert_gpx_to_map(gpx_file, output_image)
